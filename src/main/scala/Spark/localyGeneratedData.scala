@@ -2,14 +2,16 @@ package Spark
 
 import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
-
 import com.sun.rowset.internal.Row
 import org.apache.spark.{SparkConf, SparkContext, sql}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-
 import scala.collection.mutable.ListBuffer
 import scala.util.Random
+import org.apache.spark.sql.hive.HiveContext
 
+/**
+  * spark-submit  --master yarn --class Spark.localyGeneratedData localGen.jar "2017" "2018" "100" "ft_validations"
+  */
 
 object localyGeneratedData {
 
@@ -17,9 +19,18 @@ object localyGeneratedData {
   //declaration of global variable and constant
   val conf = new SparkConf()
     .setAppName("generateDataRATP")
-    .setMaster("yarn-client")
+    .setMaster("local")
+
+  //.set("spark.local.ip", "172.16.50.129" )
+
+
   val sc = new SparkContext(conf)
-  val spark = SparkSession.builder().appName("SparkSessionZipsExample").enableHiveSupport().getOrCreate()
+  val spark = SparkSession
+    .builder()
+    .appName("generateDataRATP")
+    .config("hive.metastore.uri", "thrift://sandbox-hdp.hortonworks.com:9083")
+    .enableHiveSupport()
+    .getOrCreate()
   //  val sqlContext = new org.apache.spark.sql.hive.HiveContext(sc)
   //  val sqlContext = new org.apache.spark.sql.SQLContext
 
@@ -27,10 +38,10 @@ object localyGeneratedData {
   //  var randomDate :Date = _
   var rowList :(Int,String,String,Int,Int,String,Int,Int) = _
   val rnd = new scala.util.Random
-  val idLecteurDF: DataFrame = spark.sql("SELECT id_lecteur FROM test_hive.ref_spatial")
-  //val rowsIdLecteur: org.apache.spark.rdd.RDD[org.apache.spark.sql.Row] = idLecteurDF.rdd
-  val listIdLecteur: List[sql.Row] = idLecteurDF.rdd.collect().toList
-  val sizeIdLecteur: Int = listIdLecteur.size
+//  val idLecteurDF: DataFrame = spark.sql("SELECT id_lecteur FROM data_gen")
+//  val rowsIdLecteur: org.apache.spark.rdd.RDD[org.apache.spark.sql.Row] = idLecteurDF.rdd
+//  val listIdLecteur: List[sql.Row] = idLecteurDF.rdd.collect().toList
+//  val sizeIdLecteur: Int = listIdLecteur.size
   import spark.implicits._
 
   //declaration of main function
@@ -41,7 +52,8 @@ object localyGeneratedData {
       var randomDate = defineDate(args(0).toInt, args(1).toInt)
       rowList = (
         randomize(1, 29),//idTitre
-        getRandomIdLecteur(),//idLecteur
+        Random.alphanumeric.toString(),
+//        getRandomIdLecteur(),//idLecteur
         "F" + randomize(1, 6), //idFonction
         new SimpleDateFormat("yyyyMMdd").format(randomDate).toInt, //idJour
         getIdTranche(randomDate), //idTranche
@@ -55,6 +67,7 @@ object localyGeneratedData {
         mainListHive.clear()
       }
     }
+
     if(!mainListHive.isEmpty) {
       sendToHive(mainListHive.toList, args(3))
     }
@@ -69,13 +82,13 @@ object localyGeneratedData {
       rows.takeSample(false,1).head.getString(0)
     }*/
 
-  def getRandomIdLecteur():String = {
-    listIdLecteur(randomize(0,sizeIdLecteur-1)).getString(0)
-  }
+//  def getRandomIdLecteur():String = {
+//    listIdLecteur(randomize(0,sizeIdLecteur-1)).getString(0)
+//  }
 
   def sendToHive(listToHive:List[(Int, String, String, Int, Int, String, Int, Int)], targetTable:String) ={
     val rdd = sc.parallelize(listToHive)
-    val df = rdd.toDF("ID_TITRE", "ID_LECTEUR", "ID_FONCTION", "ID_JOUR", "ID_TRANCHE", "H_VALIDATION", "MOIS", "NBRE_VALIDATION")
+    val df = rdd.toDF("ID_TITRE", "ID_LECTEUR", "ID_FUNCTION", "ID_JOUR", "ID_TRANCHE", "H_VALIDATION", "MOIS", "NBRE_VALIDATION")
     df.write.mode("append").saveAsTable("test_hive."+targetTable)
   }
 
