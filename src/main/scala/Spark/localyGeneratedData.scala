@@ -24,11 +24,13 @@ object localyGeneratedData {
   //.set("spark.local.ip", "172.16.50.129" )
 
 
+
+
   val sc = new SparkContext(conf)
   val spark = SparkSession
     .builder()
     .appName("generateDataRATP")
-    .config("hive.metastore.uri", "thrift://sandbox-hdp.hortonworks.com:9083")
+    .config("hive.metastore.uri", "thrift://hadoop-c1.talan:9083")
     .enableHiveSupport()
     .getOrCreate()
   //  val sqlContext = new org.apache.spark.sql.hive.HiveContext(sc)

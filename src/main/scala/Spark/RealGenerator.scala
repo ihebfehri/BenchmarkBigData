@@ -1,16 +1,17 @@
 package Spark
 
 import java.text.SimpleDateFormat
-import java.time.LocalDate
-import java.util.{Calendar, Random}
-
-import org.apache.spark.{SparkConf, SparkContext, sql}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import java.util.Random
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.{SQLContext, SparkSession}
 import java.time.temporal.ChronoUnit.DAYS
+
+import scala.collection.mutable.ListBuffer
+
 
 
 /**
-  * spark-submit  --master yarn --class Spark.localyGeneratedData localGen.jar "2017" "2018" "100" "ft_validations"
+  * spark-submit  --master yarn --class Spark.RealGenerator localGen.jar "2017" "2018" "100" "ft_validations"
   */
 
 object RealGenerator extends App{
@@ -24,54 +25,55 @@ object RealGenerator extends App{
   //    .getOrCreate()
   //  val sc = spark.sparkContext
 
-  val cc = new SparkConf()
-    .setAppName("generateDataRATP")
-    .setMaster("yarn-client")
-  val sc = new SparkContext(cc)
 
-  val sparkSession = SparkSession
-    .builder()
-    .master("yarn-client")
-    .appName("generateDataRATP")
-    //    .config("hive.metastore.uri", "thrift://sandbox-hdp.hortonworks.com:9083")
-    //    .config("hive.metastore.warehouse.dir", "172.168.0.2" + "user/hive/warehouse")
-    //      .config("hive.metastore.warehouse.dir", params.hiveHost + "user/hive/warehouse")
-    .enableHiveSupport()
-    .getOrCreate()
 
   override def main(args: Array[String]): Unit = {
-    generateRandomData(1000000)
+
+
+    val sparkSession = SparkSession
+      .builder()
+      .master("local")
+      .appName("generateDataRATP")
+      .config("hive.metastore.uris", "thrift://hadoop-c2.talan:9083")
+      //    .config("hive.metastore.uri", "thrift://sandbox-hdp.hortonworks.com:9083")
+      //    .config("hive.metastore.warehouse.dir", "172.168.0.2" + "user/hive/warehouse")
+      //      .config("hive.metastore.warehouse.dir", params.hiveHost + "user/hive/warehouse")
+      .enableHiveSupport()
+      .getOrCreate()
+    import sparkSession.implicits._
+
+
+    generateRandomData(1000, sparkSession)
+
+    //
+        sparkSession.sql(
+          "CREATE TABLE IF NOT EXISTS default.table_gen (" +
+            "id_titreTransport Int, " + //
+            "id_lecteurCarte String, " +
+            "id_type_Transport String, " +
+            "id_date Int, " +
+            "id_trancheHoraire Int, " +
+            "h_validation String, " +
+            "nbr_validation Int " +
+            ")"
+        )
+    //val sample = sparkSession.sql("DESCRIBE default.employee").collect()
+    //    sample.foreach(println)
+
+    sparkSession.stop()
   }
-  // todo: GET THE WAREHOUSE TO WORK GOD DAMN ITS NOT CONNECTING TO REMOTE SERVER
-  // waiting for new server........
-
-
-  //    sparkSession.sql(
-  //    "CREATE TABLE IF NOT EXISTS default.table_gen (" +
-  //      "id_titreTransport Int, " +        //
-  //      "id_lecteurCarte String, " +
-  //      "id_type_Transport String, " +
-  //      "id_date Int, " +
-  //      "id_trancheHoraire Int, " +
-  //      "h_validation String, " +
-  //      "nbr_validation Int " +
-  //      ")"
-  //  )
-  //
-  //check if it can read
-  //  val sample = sparkSession.sql("DESCRIBE default.employee").collect()
-  //  sample.foreach(println)
 
 
 
-  def randomDateFromRange(from: LocalDate, to: LocalDate): LocalDate = {
-    val diff = DAYS.between(from, to)
-    val random = new Random(System.nanoTime) // You may want a different seed
-    from.plusDays(random.nextInt(diff.toInt))
-  }
+
+//  def randomDateFromRange(from: String, to: String): String = {
+//    val diff = DAYS.between(from, to)
+//    val random = new Random(System.nanoTime) // You may want a different se
+//    // ed
+//    from.plusDays(random.nextInt(diff.toInt))
+//  }
 
   def randomTimeFromRange(): String = {
-    val today = Calendar.getInstance.getTime
     val r = scala.util.Random
 
     // create the date/time formatters
@@ -84,26 +86,39 @@ object RealGenerator extends App{
     "%s:%s".format(currentHour, currentMinute)
   }
 
-  var rowList: (Int, Int, String, Any, Int, LocalDate, String, Int) = _
-  def generateRandomData(numberofLines : Int): Unit = {
+  var rowList: (Int, String, String, Int, Int, String, Int) = _
+
+
+  def generateRandomData(numberofLines : Int, scc: SparkSession): Unit = {
+    var finalRowList=  new ListBuffer[(Int, String, String, Int, Int, String, Int)]()
     val listTransport = Array("Bus", "Metro", "RER", "Tram", "Bateau", "Bus_Nuit")
     val r = scala.util.Random
 
     for (cpt <- 1 to numberofLines) {
-
       rowList = (
-        cpt,
+//        cpt,
         r.nextInt(100),  //int
         r.alphanumeric.take(10).mkString,  //string
         listTransport(r.nextInt(5)), //string
         r.nextInt(31),   // int
-        randomDateFromRange(LocalDate.of(2017,1,1), LocalDate.of(2017,12,30)) , //localdate
+        r.nextInt(100),
+//        randomDateFromRange(String.of(2017,1,1), String.of(2017,12,30)).toString , //localdate
         randomTimeFromRange(),
         r.nextInt(5)+1 //int
       )
-      println(rowList)
+      finalRowList.append(rowList)
     }
+
+    val rdd = scc.sparkContext.parallelize(finalRowList)
+    val df = scc.createDataFrame(rdd).toDF("id_titretransport", "id_lecteurcarte", "id_type_transport", "id_date", "id_tranchehoraire", "h_validation", "nbr_validation")
+    df.write.format("hive").mode("append").saveAsTable("default.table_test")
   }
 
-  sparkSession.stop()
+  def sendToHive(listToHive:List[(Int, String, String, Int, Int, String, Int)], targetTable:String) ={
+    //    println("number: " +listToHive.length)
+    //    print(listToHive)
+    //
+  }
+
+
 }
