@@ -10,7 +10,8 @@ import scala.util.Random
 import org.apache.spark.sql.hive.HiveContext
 
 /**
-  * spark-submit  --master yarn --class Spark.localyGeneratedData localGen.jar "2017" "2018" "100" "ft_validations"
+  * sudo scp -i ~/.ssh/talan_key -o GSSAPIAuthentication=yes  GeneratedDataBenchmark.jar user@167.114.227.216:/home/user/fehri/
+    /usr/hdp/current/spark2-client/bin/spark-submit --master yarn --class Spark.RealGenerator generateddatabenchmark_2.11-0.1.jar
   */
 
 object localyGeneratedData {
@@ -92,6 +93,7 @@ object localyGeneratedData {
     val rdd = sc.parallelize(listToHive)
     val df = rdd.toDF("ID_TITRE", "ID_LECTEUR", "ID_FUNCTION", "ID_JOUR", "ID_TRANCHE", "H_VALIDATION", "MOIS", "NBRE_VALIDATION")
     df.write.mode("append").saveAsTable("test_hive."+targetTable)
+
   }
 
   def getIdTranche(date:Date):Int={

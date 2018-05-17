@@ -11,19 +11,12 @@ import scala.collection.mutable.ListBuffer
 
 
 /**
-  * spark-submit  --master yarn --class Spark.RealGenerator localGen.jar "2017" "2018" "100" "ft_validations"
+  * sudo scp -i ~/.ssh/talan_key -o GSSAPIAuthentication=yes  GeneratedDataBenchmark.jar user@167.114.227.216:/home/user/fehri/
+  * /usr/hdp/current/spark2-client/bin/spark-submit --master yarn --class Spark.RealGenerator generateddatabenchmark_2.11-0.1.jar
   */
 
 object RealGenerator extends App{
 
-  //  val spark = SparkSession
-  //    .builder()
-  //    .master("local[*]")
-  //    .appName("generateDataRATP")
-  //    .config("hive.metastore.uri", "thrift://sandbox-hdp.hortonworks.com:9083")
-  //    .enableHiveSupport()
-  //    .getOrCreate()
-  //  val sc = spark.sparkContext
 
 
 
@@ -112,6 +105,8 @@ object RealGenerator extends App{
     val rdd = scc.sparkContext.parallelize(finalRowList)
     val df = scc.createDataFrame(rdd).toDF("id_titretransport", "id_lecteurcarte", "id_type_transport", "id_date", "id_tranchehoraire", "h_validation", "nbr_validation")
     df.write.format("hive").mode("append").saveAsTable("default.table_test")
+    //todo input stream instead of write.mode above
+    //todo spark stream the data from hive
   }
 
   def sendToHive(listToHive:List[(Int, String, String, Int, Int, String, Int)], targetTable:String) ={
