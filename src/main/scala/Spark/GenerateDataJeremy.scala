@@ -14,7 +14,7 @@ import org.apache.spark.sql.hive.HiveContext
     /usr/hdp/current/spark2-client/bin/spark-submit --master yarn --class Spark.RealGenerator generateddatabenchmark_2.11-0.1.jar
   */
 
-object localyGeneratedData {
+object GenerateDataJeremy {
 
 
   //declaration of global variable and constant

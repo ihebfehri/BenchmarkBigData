@@ -15,19 +15,15 @@ import scala.collection.mutable.ListBuffer
   * /usr/hdp/current/spark2-client/bin/spark-submit --master yarn --class Spark.RealGenerator generateddatabenchmark_2.11-0.1.jar
   */
 
-object RealGenerator extends App{
-
-
-
+object GenerateHiveData extends App{
 
   override def main(args: Array[String]): Unit = {
-
-
     val sparkSession = SparkSession
       .builder()
       .master("local")
       .appName("generateDataRATP")
       .config("hive.metastore.uris", "thrift://hadoop-c2.talan:9083")
+        .config("spark.sql.warehouse.dir", "/Users/ihebfehri/Desktop/GeneratedDataBenchmark/src/main/scala/Spark/utils/hive-site.xml")
       //    .config("hive.metastore.uri", "thrift://sandbox-hdp.hortonworks.com:9083")
       //    .config("hive.metastore.warehouse.dir", "172.168.0.2" + "user/hive/warehouse")
       //      .config("hive.metastore.warehouse.dir", params.hiveHost + "user/hive/warehouse")
@@ -35,29 +31,25 @@ object RealGenerator extends App{
       .getOrCreate()
     import sparkSession.implicits._
 
-
     generateRandomData(1000, sparkSession)
 
     //
-        sparkSession.sql(
-          "CREATE TABLE IF NOT EXISTS default.table_gen (" +
-            "id_titreTransport Int, " + //
-            "id_lecteurCarte String, " +
-            "id_type_Transport String, " +
-            "id_date Int, " +
-            "id_trancheHoraire Int, " +
-            "h_validation String, " +
-            "nbr_validation Int " +
-            ")"
-        )
+//        sparkSession.sql(
+//          "CREATE TABLE IF NOT EXISTS default.table_gen (" +
+//            "id_titreTransport Int, " + //
+//            "id_lecteurCarte String, " +
+//            "id_type_Transport String, " +
+//            "id_date Int, " +
+//            "id_trancheHoraire Int, " +
+//            "h_validation String, " +
+//            "nbr_validation Int " +
+//            ")"
+//        )
     //val sample = sparkSession.sql("DESCRIBE default.employee").collect()
     //    sample.foreach(println)
 
     sparkSession.stop()
   }
-
-
-
 
 //  def randomDateFromRange(from: String, to: String): String = {
 //    val diff = DAYS.between(from, to)
@@ -109,11 +101,6 @@ object RealGenerator extends App{
     //todo spark stream the data from hive
   }
 
-  def sendToHive(listToHive:List[(Int, String, String, Int, Int, String, Int)], targetTable:String) ={
-    //    println("number: " +listToHive.length)
-    //    print(listToHive)
-    //
-  }
 
 
 }
