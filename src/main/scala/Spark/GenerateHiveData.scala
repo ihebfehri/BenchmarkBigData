@@ -12,7 +12,7 @@ import scala.collection.mutable.ListBuffer
 
 /**
   * sudo scp -i ~/.ssh/talan_key -o GSSAPIAuthentication=yes  GeneratedDataBenchmark.jar user@167.114.227.216:/home/user/fehri/
-  * /usr/hdp/current/spark2-client/bin/spark-submit --master yarn --class Spark.RealGenerator generateddatabenchmark_2.11-0.1.jar
+  * /usr/hdp/current/spark2-client/bin/spark-submit --master yarn --class Spark.GenerateHiveData generateddatabenchmark_2.11-0.1.jar
   */
 
 object GenerateHiveData extends App{
@@ -31,7 +31,7 @@ object GenerateHiveData extends App{
       .getOrCreate()
     import sparkSession.implicits._
 
-    generateRandomData(1000, sparkSession)
+    generateRandomData(1000000, sparkSession, args(0))
 
     //
 //        sparkSession.sql(
@@ -74,7 +74,7 @@ object GenerateHiveData extends App{
   var rowList: (Int, String, String, Int, Int, String, Int) = _
 
 
-  def generateRandomData(numberofLines : Int, scc: SparkSession): Unit = {
+  def generateRandomData(numberofLines : Int, scc: SparkSession, args : String): Unit = {
     var finalRowList=  new ListBuffer[(Int, String, String, Int, Int, String, Int)]()
     val listTransport = Array("Bus", "Metro", "RER", "Tram", "Bateau", "Bus_Nuit")
     val r = scala.util.Random
@@ -96,9 +96,10 @@ object GenerateHiveData extends App{
 
     val rdd = scc.sparkContext.parallelize(finalRowList)
     val df = scc.createDataFrame(rdd).toDF("id_titretransport", "id_lecteurcarte", "id_type_transport", "id_date", "id_tranchehoraire", "h_validation", "nbr_validation")
-    df.write.format("hive").mode("append").saveAsTable("default.table_test")
-    //todo input stream instead of write.mode above
-    //todo spark stream the data from hive
+    df.write.format("hive").mode("append").saveAsTable("default."+ args(0))
+
+//    df.writeStream.outputMode("append").format("parquet")
+    //todo Geneerate infinite data constant
   }
 
 
