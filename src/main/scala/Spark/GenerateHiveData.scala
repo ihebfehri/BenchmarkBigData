@@ -2,9 +2,12 @@ package Spark
 
 import java.text.SimpleDateFormat
 import java.util.Random
+
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{SQLContext, SparkSession}
 import java.time.temporal.ChronoUnit.DAYS
+
+import com.google.common.util.concurrent.RateLimiter
 
 import scala.collection.mutable.ListBuffer
 
@@ -74,6 +77,14 @@ object GenerateHiveData extends App{
   var rowList: (Int, String, String, Int, Int, String, Int) = _
 
 
+  // A TESTER ENCORE
+  val rateLimiter: Nothing = RateLimiter.create (1.0) // rate = 5000 permits per second
+  def submitPacket (packet: Array[Byte] ): Unit = {
+    rateLimiter.acquire (packet.length)
+    generateRandomData(1000000, sparkSession, args(0))
+  }
+
+
   def generateRandomData(numberofLines : Int, scc: SparkSession, args : String): Unit = {
     var finalRowList=  new ListBuffer[(Int, String, String, Int, Int, String, Int)]()
     val listTransport = Array("Bus", "Metro", "RER", "Tram", "Bateau", "Bus_Nuit")
@@ -98,10 +109,29 @@ object GenerateHiveData extends App{
     val df = scc.createDataFrame(rdd).toDF("id_titretransport", "id_lecteurcarte", "id_type_transport", "id_date", "id_tranchehoraire", "h_validation", "nbr_validation")
     df.write.format("hive").mode("append").saveAsTable("default."+ args(0))
 
+
+
 //    df.writeStream.outputMode("append").format("parquet")
     //todo Geneerate infinite data constant
   }
 
 
 
+}
+
+
+//JE SAIS PAS ENCORE
+class RateLimiter(delayMs: Int) {
+  private[this] var last: Long = System.currentTimeMillis
+  private[this] val done = scala.actors.Futures.alarm(0)
+  def request = {
+    val now = System.currentTimeMillis
+    val elapsed = synchronized {
+      val elapsed = now - last
+      last = if (elapsed < delayMs) last+delayMs else now
+      elapsed
+    }
+    if (elapsed < delayMs) scala.actors.Futures.alarm(delayMs-elapsed)
+    else done
+  }
 }
