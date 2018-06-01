@@ -21,45 +21,49 @@ import scala.collection.mutable.ListBuffer
 object GenerateHiveData extends App{
 
   override def main(args: Array[String]): Unit = {
-    val sparkSession = SparkSession
+    val sparkSession = SparkSession //initiation de spark et de tout les outils necessaires
       .builder()
       .master("local")
-      .appName("generateDataRATP")
+      .appName("generateData")
       .config("hive.metastore.uris", "thrift://hadoop-c2.talan:9083")
-        .config("spark.sql.warehouse.dir", "/Users/ihebfehri/Desktop/GeneratedDataBenchmark/src/main/scala/Spark/utils/hive-site.xml")
-      //    .config("hive.metastore.uri", "thrift://sandbox-hdp.hortonworks.com:9083")
-      //    .config("hive.metastore.warehouse.dir", "172.168.0.2" + "user/hive/warehouse")
-      //      .config("hive.metastore.warehouse.dir", params.hiveHost + "user/hive/warehouse")
+      .config("spark.sql.warehouse.dir", "/Users/ihebfehri/Desktop/GeneratedDataBenchmark/src/main/scala/Spark/utils/hive-site.xml")
       .enableHiveSupport()
       .getOrCreate()
-    import sparkSession.implicits._
 
-    generateRandomData(1000000, sparkSession, args(0))
 
+    // Controlleur de flux 1.0x/seconde
+    val rateLimiter = RateLimiter.create(1.0)
+
+    //fonction en boucle
+    while ({true}) {
+      rateLimiter.acquire() //lui associer au controleur de flux
+      println(" ----------  generating 1000 rows. ----------")
+      generateRandomData(1000, sparkSession, args(0)) //fonction qui va me generer 1000 lignes et les ecrire dans Hive
+    }
     //
-//        sparkSession.sql(
-//          "CREATE TABLE IF NOT EXISTS default.table_gen (" +
-//            "id_titreTransport Int, " + //
-//            "id_lecteurCarte String, " +
-//            "id_type_Transport String, " +
-//            "id_date Int, " +
-//            "id_trancheHoraire Int, " +
-//            "h_validation String, " +
-//            "nbr_validation Int " +
-//            ")"
-//        )
+    //        sparkSession.sql(
+    //          "CREATE TABLE IF NOT EXISTS default.table_gen (" +
+    //            "id_titreTransport Int, " + //
+    //            "id_lecteurCarte String, " +
+    //            "id_type_Transport String, " +
+    //            "id_date Int, " +
+    //            "id_trancheHoraire Int, " +
+    //            "h_validation String, " +
+    //            "nbr_validation Int " +
+    //            ")"
+    //        )
     //val sample = sparkSession.sql("DESCRIBE default.employee").collect()
     //    sample.foreach(println)
 
-    sparkSession.stop()
+    sparkSession.stop()  // lui dire que c'est la fin
   }
 
-//  def randomDateFromRange(from: String, to: String): String = {
-//    val diff = DAYS.between(from, to)
-//    val random = new Random(System.nanoTime) // You may want a different se
-//    // ed
-//    from.plusDays(random.nextInt(diff.toInt))
-//  }
+  //  def randomDateFromRange(from: String, to: String): String = {
+  //    val diff = DAYS.between(from, to)
+  //    val random = new Random(System.nanoTime) // You may want a different se
+  //    // ed
+  //    from.plusDays(random.nextInt(diff.toInt))
+  //  }
 
   def randomTimeFromRange(): String = {
     val r = scala.util.Random
@@ -76,15 +80,6 @@ object GenerateHiveData extends App{
 
   var rowList: (Int, String, String, Int, Int, String, Int) = _
 
-
-  // A TESTER ENCORE
-  val rateLimiter: Nothing = RateLimiter.create (1.0) // rate = 5000 permits per second
-  def submitPacket (packet: Array[Byte] ): Unit = {
-    rateLimiter.acquire (packet.length)
-    generateRandomData(1000000, sparkSession, args(0))
-  }
-
-
   def generateRandomData(numberofLines : Int, scc: SparkSession, args : String): Unit = {
     var finalRowList=  new ListBuffer[(Int, String, String, Int, Int, String, Int)]()
     val listTransport = Array("Bus", "Metro", "RER", "Tram", "Bateau", "Bus_Nuit")
@@ -92,13 +87,13 @@ object GenerateHiveData extends App{
 
     for (cpt <- 1 to numberofLines) {
       rowList = (
-//        cpt,
+        //        cpt,
         r.nextInt(100),  //int
         r.alphanumeric.take(10).mkString,  //string
         listTransport(r.nextInt(5)), //string
         r.nextInt(31),   // int
         r.nextInt(100),
-//        randomDateFromRange(String.of(2017,1,1), String.of(2017,12,30)).toString , //localdate
+        //        randomDateFromRange(String.of(2017,1,1), String.of(2017,12,30)).toString , //localdate
         randomTimeFromRange(),
         r.nextInt(5)+1 //int
       )
@@ -108,30 +103,22 @@ object GenerateHiveData extends App{
     val rdd = scc.sparkContext.parallelize(finalRowList)
     val df = scc.createDataFrame(rdd).toDF("id_titretransport", "id_lecteurcarte", "id_type_transport", "id_date", "id_tranchehoraire", "h_validation", "nbr_validation")
     df.write.format("hive").mode("append").saveAsTable("default."+ args(0))
-
-
-
-//    df.writeStream.outputMode("append").format("parquet")
-    //todo Geneerate infinite data constant
-  }
-
-
-
-}
-
-
-//JE SAIS PAS ENCORE
-class RateLimiter(delayMs: Int) {
-  private[this] var last: Long = System.currentTimeMillis
-  private[this] val done = scala.actors.Futures.alarm(0)
-  def request = {
-    val now = System.currentTimeMillis
-    val elapsed = synchronized {
-      val elapsed = now - last
-      last = if (elapsed < delayMs) last+delayMs else now
-      elapsed
-    }
-    if (elapsed < delayMs) scala.actors.Futures.alarm(delayMs-elapsed)
-    else done
   }
 }
+
+
+////JE SAIS PAS ENCORE
+//class RateLimiter(delayMs: Int) {
+//  private[this] var last: Long = System.currentTimeMillis
+//  private[this] val done = scala.actors.Futures.alarm(0)
+//  def request = {
+//    val now = System.currentTimeMillis
+//    val elapsed = synchronized {
+//      val elapsed = now - last
+//      last = if (elapsed < delayMs) last+delayMs else now
+//      elapsed
+//    }
+//    if (elapsed < delayMs) scala.actors.Futures.alarm(delayMs-elapsed)
+//    else done
+//  }
+//}
